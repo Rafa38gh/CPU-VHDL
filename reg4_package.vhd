@@ -1,0 +1,14 @@
+
+LIBRARY ieee;
+USE ieee.std_logic_1164.all;
+
+PACKAGE reg4_package IS
+	COMPONENT reg4
+		PORT
+		(
+			REG_IN		:	 IN STD_LOGIC_VECTOR(3 DOWNTO 0);
+			CLEAR		:	 IN STD_LOGIC;
+			REG_OUT		:	 OUT STD_LOGIC_VECTOR(3 DOWNTO 0)
+		);
+	END COMPONENT;
+END PACKAGE;

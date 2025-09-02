@@ -1,0 +1,13 @@
+LIBRARY ieee;
+USE ieee.std_logic_1164.all;
+USE work.CPU_package.all;
+
+ENTITY CPU_FINAL IS
+	PORT (
+			);
+END CPU_FINAL;
+
+ARCHITECTURE LOGIC OF CPU_FINAL IS
+BEGIN
+
+END LOGIC;
