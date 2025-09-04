@@ -41,7 +41,7 @@ ARCHITECTURE LOGIC OF CPU IS
 	
 --=====================================================================================================
 	-- Inicializando máquina de estados --
-	TYPE STATE_TYPE IS (IDLE, LOAD, LOAD1, LOAD2, SWAP1, SWAP2, SWAP3, SWAP4, ULA1, ULA2, ULA3, ULA4, ULA5, ULA6, ULA7, ULA8);
+	TYPE STATE_TYPE IS (IDLE, LOAD, SWAP1, SWAP2, SWAP3, SWAP4, SWAP5, SWAP6, SWAP7, SWAP8, SWAP9, SWAP10, ULA1, ULA2, ULA3, ULA4, ULA5, ULA6, ULA7, ULA8);
 	SIGNAL W		:		STATE_TYPE;
 	
 	BEGIN
@@ -49,7 +49,7 @@ ARCHITECTURE LOGIC OF CPU IS
 		-- INSTÂNCIAS
 		
 		-- DECODER --
-		DEC: DECODER PORT MAP(CLK, REG1, REG2, CLEAR, DECODE, DDATA, S1, S2, R1, R2, R3, R4);
+		DEC: DECODER PORT MAP(CLK, REG1, REG2, CLEAR, ENABLE, DECODE, DDATA, S1, S2, R1, R2, R3, R4);
 		
 		-- ULA --
 		ULAFINAL: ULA PORT MAP(ULACODE, BA_OUT, BB_OUT, ULA_OUT, OVERFLOW); 
@@ -68,7 +68,7 @@ ARCHITECTURE LOGIC OF CPU IS
 		
 		PROCESS(CLK, ENABLE, OPCODE, CLEAR, OPREG)
 		BEGIN
-			IF CLEAR = '1' THEN
+			IF ENABLE = '0' THEN
 				W <= IDLE;
 				
 			ELSIF CLK'EVENT AND CLK = '1' THEN
@@ -79,6 +79,7 @@ ARCHITECTURE LOGIC OF CPU IS
 						ENA <= '0';
 						ENB <= '0';
 						ENG <= '0';
+						DECODE <= "000";
 						
 						IF ENABLE = '1' THEN
 							
@@ -100,16 +101,8 @@ ARCHITECTURE LOGIC OF CPU IS
 --=======================================================================================================================================================================
 					-- LOAD
 					WHEN LOAD =>
-						DBUS <= DATA;
-						REG2(0) <= OPREG(0);
-						REG2(1) <= OPREG(1);
-						W <= LOAD1;
-					
-					WHEN LOAD1 =>
-						DDATA <= DBUS;
-						W <= LOAD2;
-					
-					WHEN LOAD2 =>
+						REG2 <= OPREG(1 DOWNTO 0);
+						DDATA <= DATA;
 						DECODE <= "001";
 						W <= IDLE;
 						
@@ -127,12 +120,31 @@ ARCHITECTURE LOGIC OF CPU IS
 						W <= SWAP3;
 						
 					WHEN SWAP3 =>
-						DECODE <= "011";
 						W <= SWAP4;
 					
 					WHEN SWAP4 =>
+						W <= SWAP5;
+					
+					WHEN SWAP5 =>
+						W <= SWAP6;
+					
+					WHEN SWAP6 =>
+						DECODE <= "011";
+						W <= SWAP7;
+						
+					WHEN SWAP7 =>
+						W <= SWAP8;
+						
+					WHEN SWAP8 =>
+						W <= SWAP9;
+						
+					WHEN SWAP9 =>
+						W <= SWAP10;
+						
+					WHEN SWAP10 =>
 						DECODE <= "100";
 						W <= IDLE;
+						
 					
 --=======================================================================================================================================================================
 					-- AND

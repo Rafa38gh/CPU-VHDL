@@ -17,6 +17,7 @@ ENTITY DECODER IS
 	PORT (CLK				:		IN STD_LOGIC;
 			REG1, REG2		:		IN STD_LOGIC_VECTOR(1 DOWNTO 0);		-- Define os registradores a serem usados
 			CLEAR				:		IN STD_LOGIC;
+			ENABLE			:		IN STD_LOGIC;
 			OPCODE			:		IN STD_LOGIC_VECTOR(2 DOWNTO 0);		-- Gerencia o tipo de operação
 			DATA				:		IN STD_LOGIC_VECTOR(3 DOWNTO 0);		-- Dados para escrita
 			S1, S2			:		OUT STD_LOGIC_VECTOR(3 DOWNTO 0);
@@ -40,87 +41,155 @@ ARCHITECTURE LOGIC OF DECODER IS
 		R3 <= R3_OUT;
 		R4 <= R4_OUT;
 		
-		PROCESS(OPCODE, REG1, REG2)
+		PROCESS(OPCODE, REG1, REG2, CLK, ENABLE, CLEAR)
 		BEGIN
-			IF OPCODE = "001"	THEN	-- LOAD
-				IF REG2 = "01" THEN
-					R1_IN <= DATA;
-				
-				ELSIF REG2 = "10" THEN
-					R2_IN <= DATA;
-				
-				ELSIF REG2 = "11" THEN
-					R3_IN <= DATA;
-				END IF;
-			
-			
-			ELSIF OPCODE = "010" THEN	-- SWAP1
-				IF REG1 = "01" THEN
-					R4_IN <= R1_OUT;
-				
-				ELSIF REG1 = "10" THEN
-					R4_IN <= R2_OUT;
-				
-				ELSIF REG1 = "11" THEN
-					R4_IN <= R3_OUT;
-				END IF;
-				
-			
-			ELSIF OPCODE = "011" THEN -- SWAP2
-				IF REG2 = "01" THEN
-					IF REG1 = "10" THEN
-						R2_IN <= R1_OUT;
-					ELSIF REG1 = "11" THEN
-						R3_IN <= R1_OUT;
-					END IF;
+			IF CLEAR = '1' THEN
+			  R1_IN <= (others => '0');
+			  R2_IN <= (others => '0');
+			  R3_IN <= (others => '0');
+			  R4_IN <= (others => '0');
+			  S1 <= (others => '0');
+			  S2 <= (others => '0');
+		
+			ELSIF rising_edge(CLK) THEN
+				IF ENABLE = '1' THEN
+					CASE OPCODE IS
+						WHEN "001" =>		-- LOAD
+							
+							CASE REG2 IS
+								WHEN "01" =>
+									R1_IN <= DATA;
+								
+								WHEN "10" =>
+									R2_IN <= DATA;
+									
+								WHEN "11" =>
+									R3_IN <= DATA;
+								
+								WHEN OTHERS => NULL;
+							
+							END CASE;
+							
+						WHEN "010" =>		-- SWAP1
+							
+							CASE REG1 IS
+								WHEN "01" =>
+									R4_IN <= R1_OUT;
+								
+								WHEN "10" =>
+									R4_IN <= R2_OUT;
+									
+								WHEN "11" =>
+									R4_IN <= R3_OUT;
+									
+								WHEN OTHERS => NULL;
+								
+							END CASE;
+						
+						WHEN "011" =>		-- SWAP2
+						
+							CASE REG2 IS
+								WHEN "01" =>
+								
+									CASE REG1 IS
+										WHEN "10" =>
+											R2_IN <= R1_OUT;
+										
+										WHEN "11" =>
+											R3_IN <= R1_OUT;
+										
+										WHEN OTHERS => NULL;
+									
+									END CASE;
+								
+								WHEN "10" =>
+									
+									CASE REG1 IS
+										WHEN "01" =>
+											R1_IN <= R2_OUT;
+										
+										WHEN "11" =>
+											R3_IN <= R2_OUT;
+										
+										WHEN OTHERS => NULL;
+										
+									END CASE;
+								
+								WHEN "11" =>
+									
+									CASE REG1 IS
+										WHEN "01" =>
+											R1_IN <= R3_OUT;
+											
+										WHEN "10" =>
+											R2_IN <= R3_OUT;
+										
+										WHEN OTHERS => NULL;
+											
+									END CASE;
+								
+								WHEN OTHERS => NULL;
+								
+							END CASE;
+						
+						WHEN "100" =>		-- SWAP3
+							CASE REG2 IS
+							
+								WHEN "01" =>
+									R1_IN <= R4_OUT;
+								
+								WHEN "10" =>
+									R2_IN <= R4_OUT;
+									
+								WHEN "11" =>
+									R3_IN <= R4_OUT;
+								
+								WHEN OTHERS => NULL;
+								
+							END CASE;
+						
+						WHEN "101" =>		-- REG OUT
+							
+							CASE REG1 IS
+								
+								WHEN "01" =>
+									S1 <= R1_OUT;
+									
+								WHEN "10" =>
+									S1 <= R2_OUT;
+									
+								WHEN "11" =>
+									S1 <= R3_OUT;
+									
+								WHEN OTHERS => NULL;
+								
+							END CASE;
+							
+							CASE REG2 IS
+								
+								WHEN "01" =>
+									S2 <= R1_OUT;
+								
+								WHEN "10" =>
+									S2 <= R2_OUT;
+									
+								WHEN "11" =>
+									S2 <= R3_OUT;
+								
+								WHEN OTHERS => NULL;
+								
+							END CASE;
+						
+						WHEN "111" =>		-- R4 IN
+							R4_IN <= DATA;
+						
+						WHEN OTHERS => NULL;
+						
+					END CASE;
 					
-				ELSIF REG2 = "10" THEN
-					IF REG1 = "01" THEN
-						R1_IN <= R2_OUT;
-					ELSIF REG1 = "11" THEN
-						R3_IN <= R2_OUT;
-					END IF;
-				
-				ELSIF REG2 = "11" THEN
-					IF REG1 = "01" THEN
-						R1_IN <= R3_OUT;
-					ELSIF REG1 = "10" THEN
-						R2_IN <= R3_OUT;
-					END IF;
 				END IF;
-			
-			ELSIF OPCODE = "100" THEN	-- SWAP3
-				IF REG2 = "01" THEN
-					R1_IN <= R4_OUT;
-					
-				ELSIF REG2 = "10" THEN
-					R2_IN <= R4_OUT;
-				
-				ELSIF REG2 = "11" THEN
-					R3_IN <= R4_OUT;
-				END IF;
-			
-			ELSIF OPCODE = "101" THEN	-- REG OUT
-				IF REG1 = "01" THEN
-					S1 <= R1_OUT;
-				ELSIF REG1 = "10" THEN
-					S1 <= R2_OUT;
-				ELSIF REG1 = "11" THEN
-					S1 <= R3_OUT;
-				END IF;
-				
-				IF REG2 = "01" THEN
-					S2 <= R1_OUT;
-				ELSIF REG2 = "10" THEN
-					S2 <= R2_OUT;
-				ELSIF REG2 = "11" THEN
-					S2 <= R3_OUT;
-				END IF;
-			
-			ELSIF OPCODE = "111" THEN
-				R4_IN <= DATA;
-				
 			END IF;
+			
 		END PROCESS;
 		
 END LOGIC;

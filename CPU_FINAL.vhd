@@ -51,7 +51,7 @@ ARCHITECTURE LOGIC OF CPU_FINAL IS
 		CLEAR <= SW(16);
 		
 		-- OVERFLOW --
-		OVERFLOW <= LEDG8;
+		LEDG8 <= OVERFLOW;
 		
 --=====================================================================
 
