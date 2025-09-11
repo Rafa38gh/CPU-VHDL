@@ -1,0 +1,23 @@
+LIBRARY ieee;
+USE ieee.std_logic_1164.all;
+
+ENTITY CPU_TB IS
+END ENTITY CPU_TB;
+
+ARCHITECTURE LOGIC OF CPU_TB IS
+	SIGNAL sw			:	STD_LOGIC_VECTOR(17 DOWNTO 0);
+	SIGNAL Clock_50	:	STD_LOGIC := '0';
+	SIGNAL stop			:	STD_LOGIC;
+	SIGNAL hex0			:	STD_LOGIC_VECTOR(0 TO 6);
+	SIGNAL hex1			:	STD_LOGIC_VECTOR(0 TO 6);
+	SIGNAL hex2			:	STD_LOGIC_VECTOR(0 TO 6);
+	SIGNAL hex3			:	STD_LOGIC_VECTOR(0 TO 6);
+	SIGNAL hex4			:	STD_LOGIC_VECTOR(0 TO 6);
+	SIGNAL ledg			:	STD_LOGIC_VECTOR(8 DOWNTO 0);
+
+	BEGIN
+		uut: ENTITY work.CPU_FINAL PORT MAP(SW => sw, Clock_50 => Clock_50, HEX3 => hex3, HEX2 => hex2, HEX1 => hex1, HEX0 => hex0, HEX4 => hex4, LEDG => ledg);
+		
+		Clock_50 <= NOT Clock_50 AFTER 5 NS WHEN stop = '0' ELSE '0';
+	
+END LOGIC;
