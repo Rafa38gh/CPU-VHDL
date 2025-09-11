@@ -9,12 +9,12 @@ USE ieee.std_logic_1164.all;
 ENTITY comp IS
 	PORT (A		:		IN STD_LOGIC_VECTOR(3 DOWNTO 0);
 			B		:		IN STD_LOGIC_VECTOR(3 DOWNTO 0);
-			S		:		OUT STD_LOGIC_VECTOR(3 DOWNTO 0);		-- Resultado da saída será armazenado no registrador
-			EQ, GT, LT	:	OUT STD_LOGIC);
+			S		:		OUT STD_LOGIC_VECTOR(3 DOWNTO 0));		-- Resultado da saída será armazenado no registrador
 END comp;
 
 ARCHITECTURE LOGIC OF comp IS
 	SIGNAL X		:		STD_LOGIC_VECTOR(3 DOWNTO 0);				-- Verifica a igualdade de cada bit
+	SIGNAL EQ, GT, LT	:	STD_LOGIC;
 	
 	BEGIN
 		

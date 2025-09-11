@@ -15,7 +15,8 @@ ENTITY CPU IS
 			CLEAR		:		IN STD_LOGIC;
 			R1, R2, R3, R4	:	OUT STD_LOGIC_VECTOR(3 DOWNTO 0);
 			OVERFLOW	:		OUT STD_LOGIC;
-			CBUS		:		OUT STD_LOGIC_VECTOR(3 DOWNTO 0));
+			CBUS		:		OUT STD_LOGIC_VECTOR(3 DOWNTO 0);
+			EQ, GT, LT	:	OUT STD_LOGIC);
 END CPU;
 			
 ARCHITECTURE FUNC OF CPU IS
@@ -61,7 +62,7 @@ ARCHITECTURE FUNC OF CPU IS
 		BG: BUFF PORT MAP(G_OUT, ENG, DBUS);
 		
 		-- ULA --
-		ULAFINAL: ULA PORT MAP(ULACODE, BA_OUT, DBUS, ULA_OUT, OVERFLOW); 
+		ULAFINAL: ULA PORT MAP(ULACODE, BA_OUT, DBUS, ULA_OUT, OVERFLOW, EQ, GT, LT); 
 		
 		CBUS <= DBUS;
 		
@@ -122,6 +123,22 @@ ARCHITECTURE FUNC OF CPU IS
 --===============================================================================================
 					-- LOAD --
 					WHEN LOAD1 =>
+						-- Desabilita os buffers --
+						EN1 <= '0';
+						EN2 <= '0';
+						EN3 <= '0';
+						EN4 <= '0';
+						ENA <= '0';
+						ENG <= '0';
+						
+						-- Desabilita a escrita dos registradores --
+						W1 <= '0';
+						W2 <= '0';
+						W3 <= '0';
+						W4 <= '0';
+						WA <= '0';
+						WG <= '0';
+					
 						EXTERN <= '1';
 						W <= LOAD2;
 					

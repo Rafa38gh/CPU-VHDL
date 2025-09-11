@@ -25,6 +25,7 @@ ARCHITECTURE LOGIC OF CPU_FINAL IS
 	SIGNAL R4			:		STD_LOGIC_VECTOR(3 DOWNTO 0);
 	SIGNAL OVERFLOW	:		STD_LOGIC;
 	SIGNAL DBUS			:		STD_LOGIC_VECTOR(3 DOWNTO 0);
+	SIGNAL EQ, GT, LT	:		STD_LOGIC;
 	
 	CONSTANT max: INTEGER :=500000;
 	CONSTANT half:INTEGER := max/2;
@@ -32,6 +33,8 @@ ARCHITECTURE LOGIC OF CPU_FINAL IS
 	signal CLK: STD_LOGIC;
 	
 	BEGIN
+		-- CPU --
+		CPUFINAL: CPU PORT MAP(Clock_50, ENABLE, OPREG, OPCODE, DATA, CLEAR, R1, R2, R3, R4, OVERFLOW, DBUS, EQ, GT, LT);
 		
 		-- ENABLE --
 		ENABLE <= SW(17);
@@ -60,10 +63,14 @@ ARCHITECTURE LOGIC OF CPU_FINAL IS
 		-- OVERFLOW --
 		LEDG(8) <= OVERFLOW;
 		
+		-- COMPARE --
+		LEDG(0) <= LT;
+		LEDG(1) <= EQ;
+		LEDG(2) <= GT;
+		
 --=====================================================================
 
-		-- CPU --
-		CPUFINAL: CPU PORT MAP(Clock_50, ENABLE, OPREG, OPCODE, DATA, CLEAR, R1, R2, R3, R4, OVERFLOW, DBUS);
+		
 		
 --=====================================================================
 
