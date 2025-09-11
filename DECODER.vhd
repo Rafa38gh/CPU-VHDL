@@ -27,13 +27,14 @@ END DECODER;
 ARCHITECTURE LOGIC OF DECODER IS
 	SIGNAL R1_IN, R2_IN, R3_IN, R4_IN		:		STD_LOGIC_VECTOR(3 DOWNTO 0);
 	SIGNAL R1_OUT, R2_OUT, R3_OUT, R4_OUT	:		STD_LOGIC_VECTOR(3 DOWNTO 0);
+	SIGNAL W1, W2, W3, W4						:		STD_LOGIC;
 	
 	BEGIN
 		-- Registradores --
-		RE1: reg4 PORT MAP(CLK, R1_IN, CLEAR, R1_OUT);
-		RE2: reg4 PORT MAP(CLK, R2_IN, CLEAR, R2_OUT);
-		RE3: reg4 PORT MAP(CLK, R3_IN, CLEAR, R3_OUT);
-		RE4: reg4 PORT MAP(CLK, R4_IN, CLEAR, R4_OUT);		-- R4 recebe resultados da ULA e serve de auxiliar para o SWAP, não é usado pelo usuário
+		RE1: reg4 PORT MAP(CLK, R1_IN, CLEAR, W1, R1_OUT);
+		RE2: reg4 PORT MAP(CLK, R2_IN, CLEAR, W2, R2_OUT);
+		RE3: reg4 PORT MAP(CLK, R3_IN, CLEAR, W3, R3_OUT);
+		RE4: reg4 PORT MAP(CLK, R4_IN, CLEAR, W4, R4_OUT);		-- R4 recebe resultados da ULA e serve de auxiliar para o SWAP, não é usado pelo usuário
 		
 		-- DECODER --
 		R1 <= R1_OUT;

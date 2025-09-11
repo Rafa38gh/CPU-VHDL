@@ -4,7 +4,6 @@ LIBRARY ieee;
 USE ieee.std_logic_1164.all;
 USE work.ULA_package.all;
 USE work.reg4_package.all;
-USE work.DECODER_package.all;
 USE work.BUFF_package.all;
 
 ENTITY CPU IS
@@ -18,22 +17,17 @@ ENTITY CPU IS
 			OVERFLOW	:		OUT STD_LOGIC);
 END CPU;
 			
-ARCHITECTURE LOGIC OF CPU IS
+ARCHITECTURE FUNC OF CPU IS
 	-- Barramento de dados --
 	SIGNAL DBUS		:		STD_LOGIC_VECTOR(3 DOWNTO 0);
 	
-	-- Sinais do DECODER --
-	SIGNAL REG1, REG2		:		STD_LOGIC_VECTOR(1 DOWNTO 0);
-	SIGNAL DECODE			:		STD_LOGIC_VECTOR(2 DOWNTO 0);
-	SIGNAL DDATA			:		STD_LOGIC_VECTOR(3 DOWNTO 0);
-	SIGNAL S1, S2			:		STD_LOGIC_VECTOR(3 DOWNTO 0);
-	
-	-- Sinais dos registradores de propósito específico --
-	SIGNAL RA_OUT, RB_OUT, RG_OUT	:		STD_LOGIC_VECTOR(3 DOWNTO 0);
+	-- Sinais dos registradores --
+	SIGNAL R1_OUT, R2_OUT, R3_OUT, R4_OUT	:		STD_LOGIC_VECTOR(3 DOWNTO 0);	
+	SIGNAL W1, W2, W3, W4							:		STD_LOGIC;
 	
 	-- Sinais dos buffers --
-	SIGNAL BA_OUT, BB_OUT, BG_OUT	:		STD_LOGIC_VECTOR(3 DOWNTO 0);
-	SIGNAL ENA, ENB, ENG				:		STD_LOGIC;
+	SIGNAL EN1, EN2, EN3, EN4, ENA, ENG, EXTERN			:		STD_LOGIC;
+	SIGNAL BA_OUT		:		STD_LOGIC_VECTOR(3 DOWNTO 0);
 	
 	-- Sinais da ULA --
 	SIGNAL ULACODE			:		STD_LOGIC_VECTOR(3 DOWNTO 0);
@@ -41,155 +35,257 @@ ARCHITECTURE LOGIC OF CPU IS
 	
 --=====================================================================================================
 	-- Inicializando máquina de estados --
-	TYPE STATE_TYPE IS (IDLE, LOAD, SWAP1, SWAP2, SWAP3, SWAP4, SWAP5, SWAP6, SWAP7, SWAP8, SWAP9, SWAP10, ULA1, ULA2, ULA3, ULA4, ULA5, ULA6, ULA7, ULA8);
+	TYPE STATE_TYPE IS (IDLE, LOAD1, LOAD2, SWAP1, SWAP2, SWAP3);
 	SIGNAL W		:		STATE_TYPE;
 	
 	BEGIN
 --=====================================================================================================
 		-- INSTÂNCIAS
 		
-		-- DECODER --
-		DEC: DECODER PORT MAP(CLK, REG1, REG2, CLEAR, ENABLE, DECODE, DDATA, S1, S2, R1, R2, R3, R4);
-		
 		-- ULA --
-		ULAFINAL: ULA PORT MAP(ULACODE, BA_OUT, BB_OUT, ULA_OUT, OVERFLOW); 
+		ULAFINAL: ULA PORT MAP(ULACODE, BA_OUT, DBUS, ULA_OUT, OVERFLOW); 
 		
-		-- Registradores de propósito específico --
-		A: reg4 PORT MAP(CLK, S1, CLEAR, RA_OUT);
-		B: reg4 PORT MAP(CLK, S2, CLEAR, RB_OUT);
-		G: reg4 PORT MAP(CLK, ULA_OUT, CLEAR, RG_OUT);
+		-- Registradores --
+		RE1: reg4 PORT MAP(CLK, DBUS, CLEAR, W1, R1_OUT);
+		RE2: reg4 PORT MAP(CLK, DBUS, CLEAR, W2, R2_OUT);
+		RE3: reg4 PORT MAP(CLK, DBUS, CLEAR, W3, R3_OUT);
+		RE4: reg4 PORT MAP(CLK, DBUS, CLEAR, W4, R4_OUT);
 		
 		-- Buffers --
-		BA: BUFF PORT MAP(RA_OUT, ENA, BA_OUT);
-		BB: BUFF PORT MAP(RB_OUT, ENB, BB_OUT);
-		BG: BUFF PORT MAP(RG_OUT, ENG, BG_OUT);
+		EXT: BUFF PORT MAP(DATA, EXTERN, DBUS);
+		B1: BUFF PORT MAP(R1_OUT, EN1, DBUS);
+		B2: BUFF PORT MAP(R2_OUT, EN2, DBUS);
+		B3: BUFF PORT MAP(R3_OUT, EN3, DBUS);
+		B4: BUFF PORT MAP(R4_OUT, EN4, DBUS);
+		BA: BUFF PORT MAP(DBUS, ENA, BA_OUT);
+		BG: BUFF PORT MAP(ULA_OUT, ENG, DBUS);
+		
+		-- Mapeando saídas dos registradores --
+		R1 <= R1_OUT;
+		R2 <= R2_OUT;
+		R3 <= R3_OUT;
+		R4 <= R4_OUT;
 --======================================================================================================
 		-- Máquina de estados --
 		
 		PROCESS(CLK, ENABLE, OPCODE, CLEAR, OPREG)
 		BEGIN
-			IF ENABLE = '0' THEN
+			IF CLEAR = '1' THEN
 				W <= IDLE;
 				
 			ELSIF CLK'EVENT AND CLK = '1' THEN
 			
 				CASE W IS
-				
+					
 					WHEN IDLE =>
+						-- Desabilita os buffers --
+						EXTERN <= '0';
+						EN1 <= '0';
+						EN2 <= '0';
+						EN3 <= '0';
+						EN4 <= '0';
 						ENA <= '0';
-						ENB <= '0';
 						ENG <= '0';
-						DECODE <= "000";
+						
+						-- Desabilita a escrita dos registradores --
+						W1 <= '0';
+						W2 <= '0';
+						W3 <= '0';
+						W4 <= '0';
+						
+						-- Desabilita as operações da ULA --
+						ULACODE <= "0000";
 						
 						IF ENABLE = '1' THEN
 							
 							IF OPCODE = "1000" THEN
-								W <= LOAD;
-							
+								W <= LOAD1;
+								
 							ELSIF OPCODE = "1001" THEN
 								W <= SWAP1;
 								
-							ELSIF OPCODE = "0001" OR OPCODE = "0010" OR OPCODE = "0011" OR OPCODE = "0100" OR OPCODE = "0101" OR OPCODE = "0110" OR OPCODE = "0111" THEN
-								W <= ULA1;
-								
 							END IF;
 							
-						ELSE
-							W <= IDLE;
-							
 						END IF;
---=======================================================================================================================================================================
-					-- LOAD
-					WHEN LOAD =>
-						REG2 <= OPREG(1 DOWNTO 0);
-						DDATA <= DATA;
-						DECODE <= "001";
-						W <= IDLE;
+
+--===============================================================================================
+					-- LOAD --
+					WHEN LOAD1 =>
+						EXTERN <= '1';
+						W <= LOAD2;
+					
+					WHEN LOAD2 =>
+						EXTERN <= '1';
+					
+						CASE OPREG(1 DOWNTO 0) IS
+							WHEN "00" =>  -- R1
+								W1 <= '1';
+							WHEN "01" =>  -- R2
+								W2 <= '1';
+							WHEN "10" =>  -- R3
+								W3 <= '1';
+							WHEN "11" =>  -- R4
+								W4 <= '1';
+							WHEN OTHERS =>
+								W1 <= '0';
+								W2 <= '0';
+								W3 <= '0';
+								W4 <= '0';	
 						
---=======================================================================================================================================================================
-					-- SWAP
+						END CASE;
+						
+						IF ENABLE = '0' THEN
+							W <= IDLE;
+						END IF;
+						
+--===============================================================================================
+					-- SWAP --
 					WHEN SWAP1 =>
-						REG2(0) <= OPREG(0);
-						REG2(1) <= OPREG(1);
-						REG1(0) <= OPREG(2);
-						REG1(1) <= OPREG(3);
+						EN1 <= '0';
+						EN2 <= '0';
+						EN3 <= '0';
+						EN4 <= '0';
+						W1 <= '0';
+						W2 <= '0';
+						W3 <= '0';
+						W4 <= '0';
+
+
+						CASE OPREG(3 DOWNTO 2) IS
+						
+							WHEN "00" => 
+								EN1 <= '1'; 
+								W4 <= '1';  -- R1 - R4
+								
+							WHEN "01" => 
+								EN2 <= '1'; 
+								W4 <= '1';  -- R2 - R4
+								
+							WHEN "10" => 
+								EN3 <= '1'; 
+								W4 <= '1';  -- R3 - R4
+								
+							WHEN OTHERS => NULL;
+						
+						END CASE;
 						W <= SWAP2;
-						
+
 					WHEN SWAP2 =>
-						DECODE <= "010";
+						EN1 <= '0'; 
+						EN2 <= '0'; 
+						EN3 <= '0'; 
+						EN4 <= '0';
+						W1 <= '0'; 
+						W2 <= '0'; 
+						W3 <= '0'; 
+						W4 <= '0';
+
+						CASE OPREG(3 DOWNTO 2) IS  -- Primeiro registrador
+						  WHEN "00" =>
+								CASE OPREG(1 DOWNTO 0) IS  -- Segundo registrador
+								
+									 WHEN "00" => 
+										EN1 <= '1'; 
+										W1 <= '1';
+										
+									 WHEN "01" => 
+										EN2 <= '1'; 
+										W1 <= '1';
+										
+									 WHEN "10" => 
+										EN3 <= '1'; 
+										W1 <= '1';
+										
+									 WHEN "11" => 
+										EN4 <= '1'; 
+										W1 <= '1';
+										
+									 WHEN OTHERS => NULL;
+								END CASE;
+								
+						  WHEN "01" =>
+								CASE OPREG(1 DOWNTO 0) IS
+								
+									 WHEN "00" => 
+										EN1 <= '1'; 
+										W2 <= '1';
+										
+									 WHEN "01" => 
+										EN2 <= '1'; 
+										W2 <= '1';
+										
+									 WHEN "10" => 
+										EN3 <= '1'; 
+										W2 <= '1';
+										
+									 WHEN "11" => 
+										EN4 <= '1'; 
+										W2 <= '1';
+										
+									 WHEN OTHERS => NULL;
+								END CASE;
+								
+						  WHEN "10" =>
+								CASE OPREG(1 DOWNTO 0) IS
+								
+									 WHEN "00" => 
+										EN1 <= '1'; 
+										W3 <= '1';
+										
+									 WHEN "01" => 
+										EN2 <= '1'; 
+										W3 <= '1';
+										
+									 WHEN "10" => 
+										EN3 <= '1'; 
+										W3 <= '1';
+										
+									 WHEN "11" => 
+										EN4 <= '1'; 
+										W3 <= '1';
+										
+									 WHEN OTHERS => NULL;
+								END CASE;
+								
+						  WHEN OTHERS => NULL;
+						END CASE;
+
 						W <= SWAP3;
-						
+
 					WHEN SWAP3 =>
-						W <= SWAP4;
-					
-					WHEN SWAP4 =>
-						W <= SWAP5;
-					
-					WHEN SWAP5 =>
-						W <= SWAP6;
-					
-					WHEN SWAP6 =>
-						DECODE <= "011";
-						W <= SWAP7;
+						EN1 <= '0'; EN2 <= '0'; EN3 <= '0'; EN4 <= '0';
+						W1 <= '0'; W2 <= '0'; W3 <= '0'; W4 <= '0';
+
+						CASE OPREG(1 DOWNTO 0) IS  -- Segundo registrador
+							WHEN "00" => 
+								W1 <= '1'; 
+								EN4 <= '1';  -- R4 - R1
+								
+							WHEN "01" => 
+								W2 <= '1'; 
+								EN4 <= '1';  -- R4 - R2
+								
+							WHEN "10" => 
+								W3 <= '1'; 
+								EN4 <= '1';  -- R4 - R3
+							WHEN OTHERS => NULL;
 						
-					WHEN SWAP7 =>
-						W <= SWAP8;
+						END CASE;
 						
-					WHEN SWAP8 =>
-						W <= SWAP9;
+						IF ENABLE = '0' THEN
+							W <= IDLE;
+						END IF;
 						
-					WHEN SWAP9 =>
-						W <= SWAP10;
-						
-					WHEN SWAP10 =>
-						DECODE <= "100";
+--===============================================================================						
+											
+					WHEN OTHERS =>
 						W <= IDLE;
 						
-					
---=======================================================================================================================================================================
-					-- AND
-					WHEN ULA1 =>
-						REG2(0) <= OPREG(0);
-						REG2(1) <= OPREG(1);
-						REG1(0) <= OPREG(2);
-						REG1(1) <= OPREG(3);
-						W <= ULA2;
-					
-					WHEN ULA2 =>
-						DECODE <= "101";
-						W <= ULA3;
-					
-					WHEN ULA3 =>
-						ENA <= '1';
-						ENB <= '1';
-						W <= ULA4;
-						
-					WHEN ULA4 =>
-						ULACODE <= OPCODE;
-						DECODE <= "000";
-						W <= ULA5;
-						
-					WHEN ULA5 =>
-						ENG <= '1';
-						W <= ULA6;
-					
-					WHEN ULA6 =>
-						DBUS <= BG_OUT;
-						W <= ULA7;
-						
-					WHEN ULA7 =>
-						DDATA <= DBUS;	
-						W <= ULA8;
-						
-					WHEN ULA8 =>
-						DECODE <= "111";
-						W <= IDLE;
 					
 				END CASE;
 				
 			END IF;
 			
 		END PROCESS;
-	
 		
-END LOGIC;
+END FUNC;
