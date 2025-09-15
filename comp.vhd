@@ -15,6 +15,7 @@ END comp;
 
 ARCHITECTURE LOGIC OF comp IS
 	SIGNAL X		:		STD_LOGIC_VECTOR(3 DOWNTO 0);				-- Verifica a igualdade de cada bit
+	SIGNAL e, g, l		:		STD_LOGIC;
 	
 	BEGIN
 		
@@ -24,16 +25,22 @@ ARCHITECTURE LOGIC OF comp IS
 		X(3) <= NOT (A(3) XOR B(3));
 		
 		-- A = B
-		EQ <= X(3) AND X(2) AND X(1) AND X(0);
+		e <= X(3) AND X(2) AND X(1) AND X(0);
 		
 		-- A > B
-		GT <= (A(3) AND NOT B(3)) OR (X(3) AND A(2) AND NOT B(2)) OR (X(3) AND X(2) AND A(1) AND NOT B(1)) OR (X(3) AND X(2) AND X(1) AND A(0) AND NOT B(0));
+		g <= (A(3) AND NOT B(3)) OR (X(3) AND A(2) AND NOT B(2)) OR (X(3) AND X(2) AND A(1) AND NOT B(1)) OR (X(3) AND X(2) AND X(1) AND A(0) AND NOT B(0));
 	
 		-- A < B
-		LT <= (NOT A(3) AND B(3)) OR (X(3) AND NOT A(2) AND B(2)) OR (X(3) AND X(2) AND NOT A(1) AND B(1)) OR (X(3) AND X(2) AND X(1) AND NOT A(0) AND B(0));
+		l <= (NOT A(3) AND B(3)) OR (X(3) AND NOT A(2) AND B(2)) OR (X(3) AND X(2) AND NOT A(1) AND B(1)) OR (X(3) AND X(2) AND X(1) AND NOT A(0) AND B(0));
+		
+		
+		-- Atribuindo resultado para os leds --
+		EQ <= e;
+		GT <= g;
+		LT <= l;
 		
 		-- Resultado passado para o registrador
-		S <=	"0011" WHEN EQ = '1' ELSE
-				"0010" WHEN GT = '1' ELSE
-				"0001" WHEN LT = '1';
+		S <=	"0011" WHEN e = '1' ELSE
+				"0010" WHEN g = '1' ELSE
+				"0001" WHEN l = '1';
 END LOGIC;
