@@ -16,7 +16,8 @@ ENTITY CPU IS
 			R1, R2, R3, R4	:	OUT STD_LOGIC_VECTOR(3 DOWNTO 0);
 			OVERFLOW	:		OUT STD_LOGIC;
 			CBUS		:		OUT STD_LOGIC_VECTOR(3 DOWNTO 0);
-			EQ, GT, LT	:	OUT STD_LOGIC);
+			EQ, GT, LT	:	OUT STD_LOGIC;
+			ST			:		OUT STD_LOGIC_VECTOR(1 DOWNTO 0));							-- Controla o estado atual da FSM
 END CPU;
 			
 ARCHITECTURE FUNC OF CPU IS
@@ -24,20 +25,21 @@ ARCHITECTURE FUNC OF CPU IS
 	SIGNAL DBUS		:		STD_LOGIC_VECTOR(3 DOWNTO 0);
 	
 	-- Sinais dos registradores --
-	SIGNAL R1_OUT, R2_OUT, R3_OUT, R4_OUT, A_OUT, G_OUT		:		STD_LOGIC_VECTOR(3 DOWNTO 0);	
-	SIGNAL W1, W2, W3, W4, WA, WG							:		STD_LOGIC;
+	SIGNAL R1_OUT, R2_OUT, R3_OUT, R4_OUT, A_OUT, B_OUT, G_OUT		:		STD_LOGIC_VECTOR(3 DOWNTO 0);	
+	SIGNAL W1, W2, W3, W4, WA, WB, WG							:		STD_LOGIC;
 	
 	-- Sinais dos buffers --
-	SIGNAL EN1, EN2, EN3, EN4, ENA, ENG, EXTERN			:		STD_LOGIC;
-	SIGNAL BA_OUT		:		STD_LOGIC_VECTOR(3 DOWNTO 0);
+	SIGNAL EN1, EN2, EN3, EN4, ENA, ENB, ENG, EXTERN			:		STD_LOGIC;
+	SIGNAL BA_OUT, BB_OUT		:		STD_LOGIC_VECTOR(3 DOWNTO 0);
 	
 	-- Sinais da ULA --
 	SIGNAL ULACODE			:		STD_LOGIC_VECTOR(3 DOWNTO 0);
 	SIGNAL ULA_OUT			:		STD_LOGIC_VECTOR(3 DOWNTO 0);
+	SIGNAL e, g, l			:		STD_LOGIC;
 	
 --=====================================================================================================
 	-- Inicializando máquina de estados --
-	TYPE STATE_TYPE IS (IDLE, LOAD1, LOAD2, LOAD3, SWAP1, SWAP2, SWAP3, SWAP4, ULA1, ULA2, ULA3, ULA4, ULA5);
+	TYPE STATE_TYPE IS (IDLE, LOAD1, LOAD2, LOAD3, SWAP1, SWAP2, SWAP3, SWAP4, ULA1, ULA2, ULA3, ULA4, ULA5, ULA6, ULA7, ULA8);
 	SIGNAL W		:		STATE_TYPE;
 	
 	BEGIN
@@ -50,6 +52,7 @@ ARCHITECTURE FUNC OF CPU IS
 		RE3: reg4 PORT MAP(CLK, DBUS, CLEAR, W3, R3_OUT);
 		RE4: reg4 PORT MAP(CLK, DBUS, CLEAR, W4, R4_OUT);
 		REA: reg4 PORT MAP(CLK, DBUS, CLEAR, WA, A_OUT);
+		REB: reg4 PORT MAP(CLK, DBUS, CLEAR, WB, B_OUT);
 		RG:  reg4 PORT MAP(CLK, ULA_OUT, CLEAR, WG, G_OUT); 
 		
 		-- Buffers --
@@ -59,10 +62,11 @@ ARCHITECTURE FUNC OF CPU IS
 		B3: BUFF PORT MAP(R3_OUT, EN3, DBUS);
 		B4: BUFF PORT MAP(R4_OUT, EN4, DBUS);
 		BA: BUFF PORT MAP(A_OUT, ENA, BA_OUT);
+		BB: BUFF PORT MAP(B_OUT, ENB, BB_OUT);
 		BG: BUFF PORT MAP(G_OUT, ENG, DBUS);
 		
 		-- ULA --
-		ULAFINAL: ULA PORT MAP(ULACODE, BA_OUT, DBUS, ULA_OUT, OVERFLOW, EQ, GT, LT); 
+		ULAFINAL: ULA PORT MAP(ULACODE, BA_OUT, BB_OUT, ULA_OUT, OVERFLOW, e, g, l); 
 		
 		CBUS <= DBUS;
 		
@@ -72,12 +76,35 @@ ARCHITECTURE FUNC OF CPU IS
 		R3 <= R3_OUT;
 		R4 <= R4_OUT;
 		
+		EQ <= e;
+		GT <= g;
+		LT <= l;
+		
 --======================================================================================================
 		-- Máquina de estados --
 		
 		PROCESS(CLK, ENABLE, OPCODE, CLEAR, OPREG)
 		BEGIN
 			IF CLEAR = '1' THEN
+				-- Desabilita os buffers --
+				EXTERN <= '0';
+				EN1 <= '0';
+				EN2 <= '0';
+				EN3 <= '0';
+				EN4 <= '0';
+				ENA <= '0';
+				ENG <= '0';
+						
+				-- Desabilita a escrita dos registradores --
+				W1 <= '0';
+				W2 <= '0';
+				W3 <= '0';
+				W4 <= '0';
+				WA <= '0';
+				WG <= '0';
+				
+				-- Desabilita as operações da ULA --
+				ULACODE <= "0000";
 				W <= IDLE;
 				
 			ELSIF CLK'EVENT AND CLK = '1' THEN
@@ -85,6 +112,7 @@ ARCHITECTURE FUNC OF CPU IS
 				CASE W IS
 					
 					WHEN IDLE =>
+						ST <= "00";
 						-- Desabilita os buffers --
 						EXTERN <= '0';
 						EN1 <= '0';
@@ -116,13 +144,16 @@ ARCHITECTURE FUNC OF CPU IS
 							ELSIF OPCODE = "0001" OR OPCODE = "0010" OR OPCODE = "0011" OR OPCODE = "0100" OR OPCODE = "0101" OR OPCODE = "0110" OR OPCODE = "0111" THEN
 								W <= ULA1;
 								
-							END IF;
+							ELSIF OPCODE = "0000" THEN
+								W <= IDLE;
 							
+							END IF;
 						END IF;
 
 --===============================================================================================
 					-- LOAD --
 					WHEN LOAD1 =>
+						ST <= "01";
 						-- Desabilita os buffers --
 						EN1 <= '0';
 						EN2 <= '0';
@@ -146,14 +177,13 @@ ARCHITECTURE FUNC OF CPU IS
 						EXTERN <= '1';
 					
 						CASE OPREG(1 DOWNTO 0) IS
-							WHEN "00" =>  -- R1
+							WHEN "01" =>  -- R1
 								W1 <= '1';
-							WHEN "01" =>  -- R2
+							WHEN "10" =>  -- R2
 								W2 <= '1';
-							WHEN "10" =>  -- R3
+							WHEN "11" =>  -- R3
 								W3 <= '1';
-							WHEN "11" =>  -- R4
-								W4 <= '1';
+							
 							WHEN OTHERS =>
 								W1 <= '0';
 								W2 <= '0';
@@ -170,12 +200,28 @@ ARCHITECTURE FUNC OF CPU IS
 								W <= IDLE;
 								
 							ELSE
+								-- Desabilita os buffers --
+								EN1 <= '0';
+								EN2 <= '0';
+								EN3 <= '0';
+								EN4 <= '0';
+								ENA <= '0';
+								ENG <= '0';
+								
+								-- Desabilita a escrita dos registradores --
+								W1 <= '0';
+								W2 <= '0';
+								W3 <= '0';
+								W4 <= '0';
+								WA <= '0';
+								WG <= '0';
 								W <= LOAD3;
 							END IF;
 						
 --===============================================================================================
 					-- SWAP --
 					WHEN SWAP1 =>
+						ST <= "10";
 						EN1 <= '0';
 						EN2 <= '0';
 						EN3 <= '0';
@@ -190,19 +236,22 @@ ARCHITECTURE FUNC OF CPU IS
 
 						CASE OPREG(3 DOWNTO 2) IS
 						
-							WHEN "00" => 
+							WHEN "01" => 
 								EN1 <= '1'; 
 								W4 <= '1';  -- R1 - R4
 								
-							WHEN "01" => 
+							WHEN "10" => 
 								EN2 <= '1'; 
 								W4 <= '1';  -- R2 - R4
 								
-							WHEN "10" => 
+							WHEN "11" => 
 								EN3 <= '1'; 
 								W4 <= '1';  -- R3 - R4
 								
-							WHEN OTHERS => NULL;
+							WHEN OTHERS =>
+								EN1 <= '0'; EN2 <= '0'; EN3 <= '0'; EN4 <= '0';
+								W1 <= '0'; W2 <= '0'; W3 <= '0'; W4 <= '0';
+								WA <= '0'; WG <= '0';
 						
 						END CASE;
 						W <= SWAP2;
@@ -220,73 +269,73 @@ ARCHITECTURE FUNC OF CPU IS
 						WG <= '0';
 
 						CASE OPREG(3 DOWNTO 2) IS  -- Primeiro registrador
-						  WHEN "00" =>
+						  WHEN "01" =>
 								CASE OPREG(1 DOWNTO 0) IS  -- Segundo registrador
 								
-									 WHEN "00" => 
+									 WHEN "01" => 
 										EN1 <= '1'; 
 										W1 <= '1';
 										
-									 WHEN "01" => 
+									 WHEN "10" => 
 										EN2 <= '1'; 
 										W1 <= '1';
 										
-									 WHEN "10" => 
-										EN3 <= '1'; 
-										W1 <= '1';
-										
 									 WHEN "11" => 
-										EN4 <= '1'; 
-										W1 <= '1';
-										
-									 WHEN OTHERS => NULL;
-								END CASE;
-								
-						  WHEN "01" =>
-								CASE OPREG(1 DOWNTO 0) IS
-								
-									 WHEN "00" => 
-										EN1 <= '1'; 
-										W2 <= '1';
-										
-									 WHEN "01" => 
-										EN2 <= '1'; 
-										W2 <= '1';
-										
-									 WHEN "10" => 
 										EN3 <= '1'; 
-										W2 <= '1';
+										W1 <= '1';										
 										
-									 WHEN "11" => 
-										EN4 <= '1'; 
-										W2 <= '1';
-										
-									 WHEN OTHERS => NULL;
+									 WHEN OTHERS =>
+										EN1 <= '0'; EN2 <= '0'; EN3 <= '0'; EN4 <= '0';
+										W1 <= '0'; W2 <= '0'; W3 <= '0'; W4 <= '0';
+										WA <= '0'; WG <= '0';
 								END CASE;
 								
 						  WHEN "10" =>
 								CASE OPREG(1 DOWNTO 0) IS
 								
-									 WHEN "00" => 
+									 WHEN "01" => 
+										EN1 <= '1'; 
+										W2 <= '1';
+										
+									 WHEN "10" => 
+										EN2 <= '1'; 
+										W2 <= '1';
+										
+									 WHEN "11" => 
+										EN3 <= '1'; 
+										W2 <= '1';
+										
+									 WHEN OTHERS =>
+										EN1 <= '0'; EN2 <= '0'; EN3 <= '0'; EN4 <= '0';
+										W1 <= '0'; W2 <= '0'; W3 <= '0'; W4 <= '0';
+										WA <= '0'; WG <= '0';
+								END CASE;
+								
+						  WHEN "11" =>
+								CASE OPREG(1 DOWNTO 0) IS
+								
+									 WHEN "01" => 
 										EN1 <= '1'; 
 										W3 <= '1';
 										
-									 WHEN "01" => 
+									 WHEN "10" => 
 										EN2 <= '1'; 
 										W3 <= '1';
 										
-									 WHEN "10" => 
+									 WHEN "11" => 
 										EN3 <= '1'; 
 										W3 <= '1';
 										
-									 WHEN "11" => 
-										EN4 <= '1'; 
-										W3 <= '1';
-										
-									 WHEN OTHERS => NULL;
+									 WHEN OTHERS =>
+										EN1 <= '0'; EN2 <= '0'; EN3 <= '0'; EN4 <= '0';
+										W1 <= '0'; W2 <= '0'; W3 <= '0'; W4 <= '0';
+										WA <= '0'; WG <= '0';
 								END CASE;
 								
-						  WHEN OTHERS => NULL;
+						  WHEN OTHERS =>
+								EN1 <= '0'; EN2 <= '0'; EN3 <= '0'; EN4 <= '0';
+								W1 <= '0'; W2 <= '0'; W3 <= '0'; W4 <= '0';
+								WA <= '0'; WG <= '0';
 						END CASE;
 
 						W <= SWAP3;
@@ -304,18 +353,22 @@ ARCHITECTURE FUNC OF CPU IS
 						WG <= '0';
 
 						CASE OPREG(1 DOWNTO 0) IS  -- Segundo registrador
-							WHEN "00" => 
+							WHEN "01" => 
 								W1 <= '1'; 
 								EN4 <= '1';  -- R4 - R1
 								
-							WHEN "01" => 
+							WHEN "10" => 
 								W2 <= '1'; 
 								EN4 <= '1';  -- R4 - R2
 								
-							WHEN "10" => 
+							WHEN "11" => 
 								W3 <= '1'; 
 								EN4 <= '1';  -- R4 - R3
-							WHEN OTHERS => NULL;
+							
+							WHEN OTHERS =>
+								EN1 <= '0'; EN2 <= '0'; EN3 <= '0'; EN4 <= '0';
+								W1 <= '0'; W2 <= '0'; W3 <= '0'; W4 <= '0';
+								WA <= '0'; WG <= '0';
 						
 						END CASE;
 						W <= SWAP4;
@@ -324,98 +377,132 @@ ARCHITECTURE FUNC OF CPU IS
 						IF ENABLE = '0' THEN
 							W <= IDLE;
 						ELSE
+							-- Desabilita os buffers --
+							EN1 <= '0';
+							EN2 <= '0';
+							EN3 <= '0';
+							EN4 <= '0';
+							ENA <= '0';
+							ENG <= '0';
+								
+							-- Desabilita a escrita dos registradores --
+							W1 <= '0';
+							W2 <= '0';
+							W3 <= '0';
+							W4 <= '0';
+							WA <= '0';
+							WG <= '0';
 							W <= SWAP4;
 						END IF;
 					
 						
 --===============================================================================		
 					-- ULA --
-					WHEN ULA1 =>
+					WHEN ULA1 =>  -- Carregar operando 1 (para A)
 						CASE OPREG(3 DOWNTO 2) IS
-							
-							WHEN "00" =>
+							WHEN "01" =>
 								EN1 <= '1';
 								WA <= '1';
 							
-							WHEN "01" =>
+							WHEN "10" =>
 								EN2 <= '1';
 								WA <= '1';
 							
-							WHEN "10" =>
+							WHEN "11" =>
 								EN3 <= '1';
 								WA <= '1';
 							
 							WHEN OTHERS => NULL;
 						END CASE;
 						W <= ULA2;
-						
-					WHEN ULA2 =>
-						EXTERN <= '0';
-						EN1 <= '0';
-						EN2 <= '0';
-						EN3 <= '0';
-						EN4 <= '0';
-						ENA <= '0';
-						
-						W1 <= '0';
-						W2 <= '0';
-						W3 <= '0';
-						WA <= '0';
-						WG <= '0';
-						
-						W <= ULA3;
 					
+					WHEN ULA2 =>
+						-- Desabilita os buffers --
+							EN1 <= '0';
+							EN2 <= '0';
+							EN3 <= '0';
+							EN4 <= '0';
+							ENA <= '0';
+							ENB <= '0';
+							ENG <= '0';
+								
+						-- Desabilita a escrita dos registradores --
+							W1 <= '0';
+							W2 <= '0';
+							W3 <= '0';
+							W4 <= '0';
+							WA <= '0';
+							WB <= '0';
+							WG <= '0';
+							
+							W <= ULA3;
+						
 					WHEN ULA3 =>
-				
 						CASE OPREG(1 DOWNTO 0) IS
-							
-							WHEN "00" =>
-								EN1 <= '1';
-								ENA <= '1';
-								WG <= '1';
-								ULACODE <= OPCODE;
-							
 							WHEN "01" =>
-								EN2 <= '1';
-								ENA <= '1';
-								WG <= '1';
-								ULACODE <= OPCODE;
+								EN1 <= '1';
+								WB <= '1';
 							
 							WHEN "10" =>
+								EN2 <= '1';
+								WB <= '1';
+							
+							WHEN "11" =>
 								EN3 <= '1';
-								ENA <= '1';
-								WG <= '1';
-								ULACODE <= OPCODE;
+								WB <= '1';
 							
 							WHEN OTHERS => NULL;
 						END CASE;
 						W <= ULA4;
 						
 					WHEN ULA4 =>
-						EXTERN <= '0';
-						EN1 <= '0';
-						EN2 <= '0';
-						EN3 <= '0';
-						EN4 <= '0';
+						-- Desabilita os buffers --
+							EN1 <= '0';
+							EN2 <= '0';
+							EN3 <= '0';
+							EN4 <= '0';
+							ENA <= '0';
+							ENB <= '0';
+							ENG <= '0';
+								
+						-- Desabilita a escrita dos registradores --
+							W1 <= '0';
+							W2 <= '0';
+							W3 <= '0';
+							W4 <= '0';
+							WA <= '0';
+							WB <= '0';
+							WG <= '0';
+							
+							W <= ULA5;
+							
+					WHEN ULA5 =>
+						ENA <= '1';
+						ENB <= '1';
+						ULACODE <= OPCODE;
+						W <= ULA6;
+					
+					WHEN ULA6 =>
+						WG <= '1';
+						W <= ULA7;
+						
+					WHEN ULA7 =>
 						ENA <= '0';
-						
-						W1 <= '0';
-						W2 <= '0';
-						W3 <= '0';
-						WA <= '0';
+						ENB <= '0';
 						WG <= '0';
-						
-						
 						ENG <= '1';
 						W4 <= '1';
+						W <= ULA8;
 					
-						W <= ULA5;
-					
-					WHEN ULA5 =>
+					WHEN ULA8 =>
+						W4 <= '0';
+						ENG <= '0';
+						
 						IF ENABLE = '0' THEN
 							W <= IDLE;
+						
 						ELSE
-							W <= ULA5;
+							W <= ULA8;
 						END IF;
 								
 											
